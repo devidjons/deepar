@@ -10,6 +10,7 @@ from tensorflow.keras.layers import Dense, Input, LSTM
 from tensorflow.keras.models import Model
 from tensorflow.keras import backend as K
 from tensorflow.keras import callbacks
+import tensorflow.keras.utils as ut
 
 from deepar.model.loss import gaussian_likelihood
 from deepar.model import NNModel
@@ -27,10 +28,10 @@ class DeepAR(NNModel):
         epochs=100,
         loss=gaussian_likelihood,
         optimizer="adam",
-        with_custom_nn_structure=None,
+        input_len = 10
     ):
         """Init."""
-
+        self.input_len= input_len
         self.ts_obj = ts_obj
         self.inputs, self.z_sample = None, None
         self.steps_per_epoch = steps_per_epoch
@@ -38,19 +39,15 @@ class DeepAR(NNModel):
         self.loss = loss
         self.optimizer = optimizer
         self.keras_model = None
-        if with_custom_nn_structure:
-            self.nn_structure = with_custom_nn_structure
-        else:
-            self.nn_structure = partial(
-                DeepAR.basic_structure,
-                n_steps=self.ts_obj.n_steps,
-                dimensions=self.ts_obj.dimensions,
-            )
+        self.nn_structure = partial(
+            self.basic_structure,
+            n_steps=self.ts_obj.n_steps,
+            dimensions=self.ts_obj.dimensions,
+        )
         self._output_layer_name = "main_output"
         self.get_intermediate = None
 
-    @staticmethod
-    def basic_structure(n_steps=20, dimensions=1):
+    def basic_structure(self, n_steps=20, dimensions=1):
         """
         This is the method that needs to be patched when changing NN structure
         :return: inputs_shape (tuple), inputs (Tensor), [loc, scale] (a list of theta parameters
@@ -61,11 +58,11 @@ class DeepAR(NNModel):
         input_shape = (n_steps, dimensions)
         inputs = Input(shape=input_shape)
         x = LSTM(
-            int(4 * (1 + math.pow(math.log(dimensions), 4))),
+            self.input_len,
             return_sequences=True,
             dropout=0.1,
         )(inputs)
-        x = Dense(int(4 * (1 + math.log(dimensions))), activation="relu")(x)
+        x = Dense(self.input_len, activation="relu")(x)
         loc, scale = GaussianLayer(dimensions, name="main_output")(x)
         return input_shape, inputs, [loc, scale]
 

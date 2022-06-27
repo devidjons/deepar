@@ -1,3 +1,5 @@
+import pdb
+
 from deepar.dataset import Dataset
 import numpy as np
 import pandas as pd
@@ -13,9 +15,9 @@ class MockTs(Dataset):
     """
 
     def __init__(
-        self, dimensions=1, t_min=0, t_max=30, resolution=0.1, batch_size=1, n_steps=10
-    ):
+        self, dimensions=1, t_min=0, t_max=30, resolution=0.1, batch_size=1, n_steps=10, divisor =1.0):
         self.dimensions = dimensions
+        self.divisor = divisor
         self.t_min = t_min
         self.t_max = t_max
         self.resolution = resolution
@@ -23,23 +25,24 @@ class MockTs(Dataset):
         self.batch_size = batch_size
         self.n_steps = n_steps
 
-    @staticmethod
-    def _time_series(t):
-        return t * np.sin(t / 6) / 3 + np.sin(t * 2)
+    def timepoint(self, t):
+        t = t/self.divisor
+        return  t * np.sin(t ) / 3 + np.sin(t * 2)
 
     def next_batch(self, batch_size, n_steps):
         """
         Generate next batch (x, y), generate y by lagging x (1 step)
         """
-        Y = []
-        for dim in range(self.dimensions):
-            t0 = np.random.rand(batch_size, 1) * (
-                self.t_max - self.t_min - n_steps * self.resolution
-            )
-            Ts = t0 + np.arange(0.0, n_steps + 1) * self.resolution
-            ys = self._time_series(Ts)
-            Y.append(ys[:, :-1].reshape(-1, n_steps, 1))
-        return np.concatenate(Y, axis=2), np.concatenate(Y, axis=2)
+        t0 = np.random.rand(batch_size, 1) * (
+            self.t_max - self.t_min - n_steps * self.resolution
+        )
+        Ts = t0 + np.arange(0.0, n_steps + 1) * self.resolution
+        ys = self.timepoint(Ts)
+        t = Ts[:,:-1].reshape(-1, n_steps, 1)
+        x = np.concatenate([ys[:, :-1].reshape(-1, n_steps, 1), t], axis = 2)
+        # x= ys[:, :-1].reshape(-1, n_steps, 1)
+        y = ys[:, 1:].reshape(-1, n_steps, 1)
+        return x,y
 
     def __next__(self):
         """Iterator."""
@@ -52,10 +55,10 @@ class MockTs(Dataset):
         :return: a Numpy array
         """
         t_list = [self.t_min]
-        results = [self._time_series(t_list[0])]
+        results = [self.timepoint(t_list[0])]
         while t_list[-1] < self.t_max:
             t_list.append(t_list[-1] + self.resolution)
-            results.append(self._time_series(t_list[-1]))
+            results.append(self.timepoint(t_list[-1]))
         return results
 
     def generate_test_data(self, n_steps):
@@ -65,10 +68,10 @@ class MockTs(Dataset):
         :return:
         """
         t_list = [self.t_max + self.resolution]
-        results = [self._time_series(t_list[0])]
+        results = [self.timepoint(t_list[0])]
         for i in range(1, n_steps):
             t_list.append(t_list[-1] + self.resolution)
-            results.append(self._time_series(t_list[-1]))
+            results.append(self.timepoint(t_list[-1]))
         return results
 
     def __iter__(self):
