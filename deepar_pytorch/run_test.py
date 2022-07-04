@@ -29,7 +29,7 @@ model2 = NeuralNetwork_pl(**hparams)
 checkpoint_callback = ModelCheckpoint(dirpath="logs/", save_top_k=2, monitor="val_loss")
 trainer = pl.Trainer(gradient_clip_val = 0.0,
                      log_every_n_steps=1,
-                     min_epochs=10, max_epochs=2000,
+                     min_epochs=10, max_epochs=1000,
                      auto_lr_find=True,
                      auto_scale_batch_size=False,
                      track_grad_norm=2,
@@ -45,7 +45,8 @@ trainer.fit(model2, val_dataloaders=model2.train_dataloader())
 model2 = model2.load_from_checkpoint(checkpoint_path= checkpoint_callback.best_model_path, **hparams)
 trainer.validate(model2, model2.train_dataloader())
 device = "cpu"
-X,y = df.loc[:300, dataset.x_cols].values, df.loc[1:301, dataset.y_col].values.reshape((-1, 1))
+N_steps_for_plot = 300
+X,y = df.loc[:N_steps_for_plot, dataset.x_cols].values, df.loc[1:(N_steps_for_plot+1), dataset.y_col].values.reshape((-1, 1))
 X, y = torch.from_numpy(X).float(), torch.from_numpy(y).float()
 X, y = X.to(device), y.to(device)
 y_pred =model2.forward(X)[0]
@@ -53,6 +54,3 @@ plt.plot(y_pred.reshape(-1).detach().numpy(), label = "pred")
 plt.plot(y.reshape(-1), label = "real")
 plt.plot(X[:,1].reshape(-1), label = "x")
 plt.legend()
-
-model2.debug =True
-# trainer.validate(model2, model2.train_dataloader(), verbose=True)
