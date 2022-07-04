@@ -27,10 +27,9 @@ class NeuralNetwork_pl(pl.LightningModule):
     def forward(self, x):
         # pdb.set_trace()
         batch_size = x.shape[0]
-        pdb.set_trace()
-        _, (x,_) = self.rnn(x)[0].reshape(-1, self.output_features)
+        x = self.rnn(x)[0].reshape(-1, self.output_features)
         mu = self.W_mu(x)
-        sigma = self.W_sig(x)
+        sigma = nn.functional.softplus(self.W_sig(x))
         return (mu.reshape(batch_size, -1, 1), sigma.reshape(batch_size, -1, 1))
 
     def training_step(self, batch, batch_idx):

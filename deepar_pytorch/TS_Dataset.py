@@ -9,16 +9,19 @@ class TS_Dataset(Dataset):
         self.df_data = df.loc[:,x_cols]
         self.targets = df.loc[:,y_col]
         self.sequence_length = sequence_length
+        self.batches = self.get_batches()
+        
+    def get_batches(self, ):
+        n_batches = self.df_data.shape[0]//(self.sequence_length+1)
+        return [self.generate_batch_by_start(i*(self.sequence_length+1)) for i in range(n_batches)]
+        
+    def generate_batch_by_start(self, start):
+        x = self.df_data.loc[start:(start + self.sequence_length),:].values
+        y = self.targets.loc[(start+1):(start + self.sequence_length+1)].values
+        return (torch.tensor(x).float(), torch.tensor(y).reshape((-1,1)).float())
 
     def __len__(self):
-        return len(self.df_data)//self.sequence_length
+        return len(self.batches)
 
     def __getitem__(self, idx):
-        idx = idx * self.sequence_length
-        # print("index = ", idx)
-        if (idx+self.sequence_length+1) > len(self.df_data):
-            idx-= self.sequence_length
-        indexes = list(range(idx, idx + self.sequence_length+1))
-        data = self.df_data.iloc[indexes[:-1], :].values
-        target = self.targets.iloc[indexes[1:]].values
-        return torch.tensor(data).float(), torch.tensor(target).reshape((-1,1)).float()
+        return self.batches[idx]
